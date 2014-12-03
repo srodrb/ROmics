@@ -1,0 +1,5 @@
+# archivos en linux
+.DS_Store
+*.txt
+*.o
+*~
