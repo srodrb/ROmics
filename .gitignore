@@ -1,5 +1,6 @@
 # archivos en linux
 .DS_Store
-*.txt
 *.o
 *~
+# ignore documentation folder, personal pendent tasks only..
+Documentation
