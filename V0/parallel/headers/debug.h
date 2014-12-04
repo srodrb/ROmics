@@ -11,4 +11,10 @@
 	#define debug(message, ...)
 #endif
 
+#define SafeMalloc(size, ...) __SafeMalloc(size, __FILE__, __LINE__)
+void* __SafeMalloc(size_t size, const char* file, const int line);
+
+#define Safefopen(path, mode, ...) __Safefopen(path, mode, __FILE__, __LINE__)
+FILE* __Safefopen(const char* path, const char* mode, const char* file, const int line);
+
 #endif //__DEBUG_H_DEFINED__

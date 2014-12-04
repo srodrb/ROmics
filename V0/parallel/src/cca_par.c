@@ -1,17 +1,5 @@
 #include "../headers/cca_par.h"
 
-void* SafeMalloc( size_t size){
-	void* temp = malloc(size);
-	
-	if(temp != NULL)
-		return temp;
-	else{
-		printf("Problem when allocating memory!\n");
-		exit(-1);
-	}
-}
-
-
 void ShowSquaredMatrix( const char* message, real* data, const unsigned int dimension){
 	/* prints out a squared matrix along with a user message */
 	printf("\n ShowMatrix info: %s\n", message);
@@ -40,26 +28,51 @@ void ComputeEigenvalues(real* A, const unsigned int NumberOfVaribles){
 	 * > man shseqr
 	 */
 
+
 	real* tau = SafeMalloc( (NumberOfVaribles -1)*sizeof(real));
-	int i;	 								// just loop counters
-	int info;
-	int order = (int) NumberOfVaribles;
-	int ilo = 1;
-	int ihi = order;
-	int lwork_sgehrd = -1; 					// workspace query
-	real wwork;
+	int  i;	 								// just loop counters
+	int  info;
+	int  order = (int) NumberOfVaribles;
+	int  ilo = 1;
+	int  ihi = order;
+	int  lwork_sgehrd = -1; 					// workspace query
+	real *opt_dim = SafeMalloc(sizeof(real));
 	char job   = 'E'; 						// only eigenvalues
 	char compz = 'N'; 						// no schur vectors are computed
 
-	sgehrd_( &order, &ilo, &ihi, A, &order, tau, &wwork, &lwork_sgehrd, &info);
-	if(info!=0){printf("sgehrd_ execution : failed\n");}
+	sgehrd_( 
+			&order, 
+			&ilo, 
+			&ihi, 
+			A, 
+			&order, 
+			tau, 
+			opt_dim, 
+			&lwork_sgehrd, 
+			&info);
 
-	lwork_sgehrd = (int) wwork;
-	real* work = SafeMalloc( sizeof(real) * lwork_sgehrd);
+	if(info!=0){printf("sgehrd_ execution : failed, invalid argument on position %d on line %d\n", info, __LINE__);}
+	debug("La primera llamada a sgehrd_ ha funcionado correctamente");
 
-	sgehrd_( &order, &ilo, &ihi, A, &order, tau, work, &lwork_sgehrd, &info);
-	if(info!=0){printf("sgehrd_ execution : failed\n");}
+	lwork_sgehrd = (int) opt_dim[0];
+	printf("La longitud para blocking vale: %d\n", lwork_sgehrd);
+	real* work = (real*) SafeMalloc( sizeof(real) * lwork_sgehrd);
+	
 
+	sgehrd_( 
+			&order, 
+			&ilo, 
+			&ihi, 
+			A, 
+			&order, 
+			tau, 
+			work, 
+			&lwork_sgehrd, 
+			&info);
+	if(info!=0){printf("sgehrd_ execution : failed, invalid argument on position %d on line %d\n", info, __LINE__);}
+
+	debug("La segunda llamada a sgehrd_ ha funcionado correctamente");
+	
 	free( tau); tau = NULL;
 
 
@@ -69,11 +82,11 @@ void ComputeEigenvalues(real* A, const unsigned int NumberOfVaribles){
 	int ldz = 1;
 	int lwork_shseqr = -1; 								// query optimal dimensions
 
-	shseqr_ (&job, &compz, &order, &ilo, &ihi, A, &order, wr, wi, z, &ldz, &wwork, &lwork_shseqr, &info);
-	if(info!=0){printf("shseqr_ execution : failed\n");}
+	shseqr_ (&job, &compz, &order, &ilo, &ihi, A, &order, wr, wi, z, &ldz, &work, &lwork_shseqr, &info);
+	if(info!=0){printf("sgehrd_ execution : failed, invalid argument on position %d on line %d\n", info, __LINE__);}
 
 
-	lwork_shseqr = (int) wwork;
+	lwork_shseqr = (int) work[0];
 	if( lwork_shseqr != lwork_sgehrd) /* work array has to be resized */
 		work = (real*) realloc( work, (int) sizeof(real) * lwork_shseqr);
 
@@ -91,14 +104,9 @@ void ComputeEigenvalues(real* A, const unsigned int NumberOfVaribles){
 
 /* Inicializacion del dataset mediante carga de fichero externo */
 Sample* ImportSampleData( const char* pathToSample){
-	int i,j;
 	Sample* dataBuffer = SafeMalloc( sizeof(Sample));
 
-	FILE *file = fopen(pathToSample, "r");
-	if( !file ){
-		perror("Error when reading matrix data\n");
-		exit(-1);
-	}
+	FILE *file = Safefopen(pathToSample, "r");
 
 	// los dos primeros numeros son las filas y las columnas
 	if( !fscanf(file, "%d", &dataBuffer->nrows )) {
@@ -111,37 +119,22 @@ Sample* ImportSampleData( const char* pathToSample){
 		exit(-1);
 	}
 
-	// printf("\nInfo: Loading %s sample on memory. Dimensions: (%d,%d)\n", pathToSample, dataBuffer->nrows, dataBuffer->ncols);
+	printf("\nInfo: Loading %s sample on memory. Dimensions: (%d,%d)\n", pathToSample, dataBuffer->nrows, dataBuffer->ncols);
 
 	/* Reservamos memoria necesaria para el array de medias, la matriz de covarianzas y los datos en crudo */
-	dataBuffer->rawData = SafeMalloc( dataBuffer->nrows * dataBuffer->ncols * sizeof(real));
-	if( dataBuffer->rawData == NULL){
-		perror("Error while allocating memory for coefficients!");
-		exit(-1);
-	}
-
-	dataBuffer->arrayOfMeans = SafeMalloc( dataBuffer->nrows * sizeof(real));
-	if( dataBuffer->arrayOfMeans == NULL){
-		perror("Error while allocating memory for means array!");
-		exit(-1);
-	}
-
+	dataBuffer->rawData          = SafeMalloc( dataBuffer->nrows * dataBuffer->ncols * sizeof(real));
+	dataBuffer->arrayOfMeans     = SafeMalloc( dataBuffer->nrows * sizeof(real));
 	dataBuffer->covarianceMatrix = SafeMalloc( dataBuffer->nrows * dataBuffer->nrows * sizeof(real));
-	if( dataBuffer->covarianceMatrix == NULL){
-		perror("Error while allocating memory for covariance matrix!");
-		exit(-1);
-	}
-
 
 	/* leemos los datos del fichero de coeficientes */
-	for (j = 0; j < dataBuffer->nrows; ++j) {
-		for (i = 0; i < dataBuffer->ncols; ++i) {
+	for (int j = 0; j < dataBuffer->nrows; ++j) {
+		for (int i = 0; i < dataBuffer->ncols; ++i) {
 			if( !fscanf( file, "%f", &dataBuffer->rawData[j*dataBuffer->ncols + i])){
 				break;
 			}
-			//printf("%.1f  ", dataBuffer->rawData[ j*dataBuffer->ncols + i]);
+			printf("%.1f  ", dataBuffer->rawData[ j*dataBuffer->ncols + i]);
 		}
-		//printf("\n");
+		printf("\n");
 	}
 
 	fclose( file);
@@ -319,19 +312,22 @@ cca* cca_perform( const char* path_sample1, const char* path_sample2){
 	}
 
 	/* calculo las correlaciones entre los samples X e Y */
+	debug("Showing var-covar matrix");
 	for (varX_ = 0; varX_ < NumberOfVaribles; ++varX_) {
 		for (varY_ = 0; varY_ < NumberOfVaribles; ++varY_) {
 			cca_analysis->betweenSetsCovariance[varX_ * NumberOfVaribles + varY_] =
 					covariance( &cca_analysis->sample_x->rawData[varX_ * NumberOfObsInX], &cca_analysis->sample_y->rawData[varY_ * NumberOfObsInY], NumberOfObsInX);
-			//printf("%.3f  ", cca_analysis->betweenSetsCovariance[varX_ * NumberOfVaribles + varY_]);
+			printf("%.3f  ", cca_analysis->betweenSetsCovariance[varX_ * NumberOfVaribles + varY_]);
 		}
-		//printf("\n");
+		printf("\n");
 	}
 
 
 	/* una vez tenemos calculadas las matrices de covarianza, podemos invertir y multiplicar */
-	Sample_invertCovarianceMatrix( cca_analysis->sample_x); debug("Covariance matrix inverted for sample x");
-	Sample_invertCovarianceMatrix( cca_analysis->sample_y); debug("Covariance matrix inverted for sample y");
+	Sample_invertCovarianceMatrix( cca_analysis->sample_x); 
+	ShowSquaredMatrix("inverted covariance matrix on x", cca_analysis->sample_x, NumberOfVaribles);
+	Sample_invertCovarianceMatrix( cca_analysis->sample_y); 
+	ShowSquaredMatrix("inverted covariance matrix on y", cca_analysis->sample_y, NumberOfVaribles);
 
 
 	/* ahora tengo que realizar los productos de matrices */
@@ -402,7 +398,12 @@ cca* cca_perform( const char* path_sample1, const char* path_sample2){
 
 	/* Finally we calculate the eigenvalues of the matrix*/
 	ComputeEigenvalues( cca_analysis->betweenSetsCovariance, NumberOfVaribles);
-	
+
+	for (int i = 0; i < NumberOfVaribles; ++i)
+	{	
+		printf("Eigenvalue %d = %f\n", i+1, cca_analysis->betweenSetsCovariance[i]);
+	}
+
 	debug("Eigenvalue calculation completed");
 
 	printf("\n");

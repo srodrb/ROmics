@@ -16,8 +16,8 @@ int main(void) {
 //const char *path_sample1 = "/home/samuel/cuda-workspace/cca_prbb_c/src/x_sample_big.txt";
 //const char *path_sample1 = "/home/samuel/cuda-workspace/cca_prbb_c/src/x_sample_big.txt";
 
-const char *path_sample1 = "../../../testdata/x_sample_small.txt";
-const char *path_sample2 = "../../../testdata/y_sample_small.txt";
+const char *path_sample1 = "x_sample_big.txt";
+const char *path_sample2 = "y_sample_big.txt";
 
 	clock_t start, end;
 	double cpu_time_used;

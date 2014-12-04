@@ -6,16 +6,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#include "debug.h"
-//#include <omp.h>
+#include "../headers/debug.h"
 
 #ifdef DOUBLE
-	#define real float
+	typedef float real;
 #else
-	#define real double
+	typedef double real;
 #endif
-
-void* SafeMalloc( size_t size);
 
 void ShowSquaredMatrix( const char* message, real* data, const unsigned int dimension);
 void ComputeEigenvalues(real* A, const unsigned int NumberOfVaribles);
